@@ -1,0 +1,12 @@
+{
+  "name": "backend-1",
+  "version": "1.0.0",
+  "description": "The Robust backend build for scaling the smart home pricing system",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
