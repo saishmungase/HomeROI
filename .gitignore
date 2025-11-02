@@ -1,2 +1,4 @@
 model/__pycache__/
 model/venv/
+model/model.pkl
+model/train.csv
