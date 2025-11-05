@@ -194,9 +194,9 @@ function parsePropertyHTML(html) {
     ) || uniqueImages[0];
   } else {
     // Fallback placeholders
-    images.main = 'https://placehold.co/600x400/1e293b/94a3b8?text=Main+Image+Not+Found';
-    images.kitchen = 'https://placehold.co/600x400/553c30/FFFFFF?text=Kitchen+Image+Not+Found';
-    images.basement = 'https://placehold.co/600x400/4a4a4a/FFFFFF?text=Basement+Image+Not+Found';
+    images.main = 'https://photos.zillowstatic.com/fp/03a36bcfb147fe15ea3147896b4f03f5-cc_ft_1152.webp';
+    images.kitchen = 'https://photos.zillowstatic.com/fp/32001bc5de16fe698a9fe84ecab95508-cc_ft_576.webp';
+    images.basement = 'https://photos.zillowstatic.com/fp/78c71ba4095717d87e6c6e04b880389a-cc_ft_576.webp';
     images.exterior = 'https://placehold.co/600x400/8b9a4a/FFFFFF?text=Exterior+Image+Not+Found';
   }
 
