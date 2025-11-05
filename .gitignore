@@ -7,3 +7,4 @@ model/train.csv
 
 backend/node_modules
 backend/.env
+backend/scrapped.html
