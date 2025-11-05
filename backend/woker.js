@@ -41,16 +41,16 @@ export default class Worker{
     }
 
     emptyResQ(){
-        arr.filter(val => val.status !== "reached");
+        this.resQ.filter(val => val.status !== "reached");
     }
 
     resSuccess(user){
         this.resQ.map((res)=>{
             if(res.user == user){
                 res.status = "reached"
-                return;
             }
         })
+        this.emptyResQ()
     }
 
     sendRes(user){
