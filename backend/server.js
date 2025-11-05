@@ -1,8 +1,13 @@
+import express from "express";
+import http from "http";
 import { WebSocketServer } from 'ws';
 import Worker from './woker.js';
 
-const wss = new WebSocketServer({ port: 8080 });
 
+const app = express();
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ server });
 const worker = new Worker();
 
 wss.on('connection', function connection(ws) {
@@ -32,4 +37,13 @@ wss.on('connection', function connection(ws) {
         }
   });
 
+});
+
+app.get("/", (req, res) => {
+  res.send("WebSocket server is running");
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
