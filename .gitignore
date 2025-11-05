@@ -1,4 +1,9 @@
+# git ignore for model and backend
+
 model/__pycache__/
 model/venv/
 model/model.pkl
 model/train.csv
+
+backend/node_modules
+backend/.env
