@@ -318,10 +318,10 @@ export async function scrapePropertyData(propertyUrl) {
         GrLivArea: 1710, TotRmsAbvGrd: 8, FullBath: 2, Neighborhood: 'CollgCr',
         BldgType: '1Fam',
         images: {
-          kitchen: 'https://placehold.co/600x400/553c30/FFFFFF?text=SCRAPE+FAILED',
+          kitchen: 'https://photos.zillowstatic.com/fp/35a38cb47defcb5d5d6db786e50f228f-cc_ft_1152.webp',
           basement: 'https://placehold.co/600x400/4a4a4a/FFFFFF?text=SCRAPE+FAILED',
-          exterior: 'https://placehold.co/600x400/8b9a4a/FFFFFF?text=SCRAPE+FAILED',
-          main: 'https://placehold.co/600x400/1e293b/94a3b8?text=SCRAPE+FAILED'
+          exterior: 'https://photos.zillowstatic.com/fp/62ce747cac50c4856d1814226c483c5a-cc_ft_576.webp',
+          main: 'https://photos.zillowstatic.com/fp/03a36bcfb147fe15ea3147896b4f03f5-cc_ft_1152.webp'
         }
       }
     };
