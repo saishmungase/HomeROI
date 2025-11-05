@@ -1,14 +1,20 @@
+
 import 'dotenv/config';
 import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 
+// --- 1. API CLIENTS ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const geminiVisionModel = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
 const apiClient = axios.create();
 
+// --- 2. CORE FUNCTIONS ---
 
+/**
+ * [IMPROVED] Robust HTML parser with multiple fallback strategies
+ */
 function parsePropertyHTML(html) {
   const $ = cheerio.load(html);
   const scrapedData = {};
@@ -16,6 +22,7 @@ function parsePropertyHTML(html) {
 
   console.log('[Parser] Attempting to extract data from HTML...');
 
+  // Helper: Parse numbers from text
   const parseNum = (text) => {
     if (!text) return null;
     const cleaned = text.toString().replace(/[^0-9]/g, '');
@@ -23,6 +30,7 @@ function parsePropertyHTML(html) {
     return isNaN(num) ? null : num;
   };
 
+  // Helper: Try multiple selectors
   const trySelectors = (selectors) => {
     for (const selector of selectors) {
       const text = $(selector).first().text().trim();
@@ -31,6 +39,8 @@ function parsePropertyHTML(html) {
     return null;
   };
 
+  // --- STRATEGY 1: Look for JSON-LD structured data ---
+  // Many sites embed structured data for SEO
   try {
     const jsonLdScripts = $('script[type="application/ld+json"]');
     jsonLdScripts.each((i, elem) => {
@@ -51,17 +61,22 @@ function parsePropertyHTML(html) {
           }
         }
       } catch (e) {
+        // Skip invalid JSON
       }
     });
   } catch (e) {
     console.warn('[Parser] JSON-LD parsing failed');
   }
 
+  // --- STRATEGY 2: Parse from meta tags ---
   const ogPrice = $('meta[property="og:price:amount"]').attr('content');
   if (ogPrice && !scrapedData.price) {
     scrapedData.price = parseNum(ogPrice);
   }
 
+  // --- STRATEGY 3: Text-based extraction with multiple selectors ---
+  
+  // Living Area / Square Feet
   if (!scrapedData.GrLivArea) {
     const sqftText = trySelectors([
       'span:contains("sqft")',
@@ -73,6 +88,7 @@ function parsePropertyHTML(html) {
     scrapedData.GrLivArea = parseNum(sqftText);
   }
 
+  // Year Built
   if (!scrapedData.YearBuilt) {
     const yearText = trySelectors([
       'span:contains("Built in")',
@@ -84,6 +100,7 @@ function parsePropertyHTML(html) {
     scrapedData.YearBuilt = parseNum(yearText);
   }
 
+  // Lot Size
   if (!scrapedData.LotArea) {
     const lotText = trySelectors([
       'span:contains("Lot size")',
@@ -95,6 +112,7 @@ function parsePropertyHTML(html) {
     scrapedData.LotArea = parseNum(lotText);
   }
 
+  // Bedrooms and Bathrooms - look for the "3 bd | 2 ba" pattern
   const bedBathSelectors = [
     '[data-testid="bed-bath-beyond"]',
     '.ds-bed-bath-living-area-container',
@@ -109,15 +127,17 @@ function parsePropertyHTML(html) {
     const baMatch = bedBathText.match(/(\d+)\s*ba/i);
     
     if (bdMatch && !scrapedData.TotRmsAbvGrd) {
-      scrapedData.TotRmsAbvGrd = parseInt(bdMatch[1]) * 2; 
+      scrapedData.TotRmsAbvGrd = parseInt(bdMatch[1]) * 2; // Rough estimate
     }
     if (baMatch && !scrapedData.FullBath) {
       scrapedData.FullBath = parseInt(baMatch[1]);
     }
   }
 
+  // --- STRATEGY 4: Images with multiple approaches ---
   const allImages = [];
   
+  // Try multiple image selector strategies
   const imageSelectors = [
     'ul li button img',
     '.media-stream img',
@@ -132,6 +152,7 @@ function parsePropertyHTML(html) {
     $(selector).each((i, el) => {
       let src = $(el).attr('src') || $(el).attr('data-src');
       
+      // Handle srcset
       if (!src) {
         const srcset = $(el).attr('srcset');
         if (srcset) {
@@ -140,12 +161,14 @@ function parsePropertyHTML(html) {
       }
       
       if (src && !src.includes('data:image') && src.startsWith('http')) {
+        // Get high-res version if available
         src = src.replace(/\/\d+x\d+_/, '/1024x768_');
         allImages.push(src);
       }
     });
   });
 
+  // Deduplicate images
   const uniqueImages = [...new Set(allImages)];
   
   console.log(`[Parser] Found ${uniqueImages.length} unique images`);
@@ -153,6 +176,7 @@ function parsePropertyHTML(html) {
   if (uniqueImages.length > 0) {
     images.main = uniqueImages[0];
     
+    // Try to intelligently categorize images
     images.kitchen = uniqueImages.find(src => 
       src.toLowerCase().includes('kitchen') || 
       src.toLowerCase().includes('uncaptioned')
@@ -169,6 +193,7 @@ function parsePropertyHTML(html) {
       src.toLowerCase().includes('street')
     ) || uniqueImages[0];
   } else {
+    // Fallback placeholders
     images.main = 'https://placehold.co/600x400/1e293b/94a3b8?text=Main+Image+Not+Found';
     images.kitchen = 'https://placehold.co/600x400/553c30/FFFFFF?text=Kitchen+Image+Not+Found';
     images.basement = 'https://placehold.co/600x400/4a4a4a/FFFFFF?text=Basement+Image+Not+Found';
@@ -177,11 +202,13 @@ function parsePropertyHTML(html) {
 
   scrapedData.images = images;
 
+  // Add defaults for features we can't parse
   scrapedData.OverallQual = scrapedData.OverallQual || 7;
   scrapedData.OverallCond = scrapedData.OverallCond || 5;
   scrapedData.Neighborhood = scrapedData.Neighborhood || 'CollgCr';
   scrapedData.BldgType = scrapedData.BldgType || '1Fam';
 
+  // Log what we found
   console.log('[Parser] Extracted data:', {
     GrLivArea: scrapedData.GrLivArea,
     YearBuilt: scrapedData.YearBuilt,
@@ -197,12 +224,12 @@ function parsePropertyHTML(html) {
 /**
  * [CORE FUNCTION 1: SCRAPING]
  */
-
 export async function scrapePropertyData(propertyUrl) {
   console.log(`[Engine] LIVE SCRAPE: Scraping started for: ${propertyUrl}`);
 
   const scraperApiUrl = `http://api.scraperapi.com?api_key=${process.env.SCRAPER_API_KEY}&url=${encodeURIComponent(propertyUrl)}`;
 
+  // --- SAFETY SWITCH ---
   const USE_DEMO_HACK_FOR_STABILITY = false;
 
   if (USE_DEMO_HACK_FOR_STABILITY) {
@@ -226,7 +253,7 @@ export async function scrapePropertyData(propertyUrl) {
   try {
     console.log('[Engine] LIVE SCRAPE: Fetching from ScraperAPI...');
     const response = await apiClient.get(scraperApiUrl, {
-      timeout: 30000, 
+      timeout: 30000, // 30 second timeout
       headers: {
         'Accept': 'text/html,application/xhtml+xml,application/xml',
       }
@@ -244,8 +271,10 @@ export async function scrapePropertyData(propertyUrl) {
       }
     });
 
+    // Use improved parser
     const scrapedData = parsePropertyHTML(html);
 
+    // --- VALIDATION ---
     const hasMinimumData = scrapedData.GrLivArea || scrapedData.images.main;
     
     if (!hasMinimumData) {
@@ -253,6 +282,7 @@ export async function scrapePropertyData(propertyUrl) {
       throw new Error('Live scraping failed. Could not extract minimum required data.');
     }
 
+    // Fill in missing critical fields with reasonable defaults
     if (!scrapedData.GrLivArea) {
       console.warn('[Engine] Missing GrLivArea, using default: 1710');
       scrapedData.GrLivArea = 1710;
@@ -301,7 +331,6 @@ export async function scrapePropertyData(propertyUrl) {
 /**
  * [CORE FUNCTION 2: AI VISION]
  */
-
 export async function getAiConditionAnalysis(imageUrl, featureType) {
   console.log(`[Engine] AI Vision: Analyzing ${featureType} at ${imageUrl}`);
   
@@ -357,7 +386,6 @@ export async function getAiConditionAnalysis(imageUrl, featureType) {
 /**
  * [CORE FUNCTION 3: ML MODEL]
  */
-
 export async function callPredictApi(features) {
   console.log(`[Engine] Calling Hugging Face model...`);
   try {
@@ -372,6 +400,7 @@ export async function callPredictApi(features) {
 }
 
 
+// Helper Function for improvement => 
   /**
  * [NEW HELPER FUNCTION]
  * Generates a list of actionable steps for a given renovation type.
@@ -408,6 +437,7 @@ function getRenovationSteps(featureToUpgrade) {
         'Upgrade landscaping and exterior light fixtures to match the new look.',
       ];
     default:
+      // A generic fallback
       return [
         'Consult a professional contractor for a project plan.',
         'Secure funding and permits.',
@@ -419,7 +449,6 @@ function getRenovationSteps(featureToUpgrade) {
 /**
  * [CORE FUNCTION 4: THE ORCHESTRATOR]
  */
-
 export async function runFullRoiAnalysis(propertyUrl) {
   console.log(`[Engine] --- STARTING FULL ROI ANALYSIS ---`);
 
@@ -460,6 +489,7 @@ export async function runFullRoiAnalysis(propertyUrl) {
   const UPGRADES_TO_SIMULATE = ['KitchenQual', 'BsmtQual', 'ExterQual'];
   let simulationResults = [];
 
+// [Updated Code Block]
   for (const featureToUpgrade of UPGRADES_TO_SIMULATE) {
     let upgradedFeatures = { ...baseFeatures };
     upgradedFeatures[featureToUpgrade] = 'Ex';
@@ -470,7 +500,10 @@ export async function runFullRoiAnalysis(propertyUrl) {
     const netProfit = valueUplift - cost;
     const roi = (netProfit / cost) * 100;
 
+    // --- NEWLY ADDED ---
+    // Get the actionable steps for this upgrade
     const steps = getRenovationSteps(featureToUpgrade);
+    // --- END NEW ---
 
     console.log(`[Engine] Sim: ${featureToUpgrade} | Cost: ${cost} | Uplift: ${valueUplift} | ROI: ${roi.toFixed(0)}%`);
 
@@ -481,7 +514,7 @@ export async function runFullRoiAnalysis(propertyUrl) {
       cost: cost,
       netProfit: netProfit,
       roi: parseFloat(roi.toFixed(1)),
-      steps: steps 
+      steps: steps // <-- This is the new property
     });
   }
 
