@@ -31,9 +31,10 @@ export default class Worker{
         const currJob = this.reqQ.pop();
         console.log(currJob)
         const analysis = await runFullRoiAnalysis(currJob.url)
+        // When analysis completes, push result as 'ready'
         this.resQ.push({
             user : currJob.user,
-            status : "in-queue", // in-queue or reached
+            status : "ready",
             data : analysis
         });
 
@@ -41,25 +42,17 @@ export default class Worker{
     }
 
     emptyResQ(){
-        this.resQ.filter(val => val.status !== "reached");
+        // Remove any results that have status === 'reached' (i.e., acknowledged)
+        this.resQ = this.resQ.filter(val => val.status !== "reached");
     }
 
     resSuccess(user){
-        this.resQ.map((res)=>{
-            if(res.user == user){
-                res.status = "reached"
-            }
-        })
-        this.emptyResQ()
+        // Remove results for the user when frontend confirms success
+        this.resQ = this.resQ.filter((res) => res.user !== user)
     }
 
     sendRes(user){
-        const res = this.resQ.map((res) =>{
-            if(res.user == user){
-                return res;
-            }
-        })
-
-        return res;
+        // Return only matching results (filtered). If none, return an empty array.
+        return this.resQ.filter((res) => res.user == user);
     }
 }
