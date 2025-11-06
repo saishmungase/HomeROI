@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -7,7 +6,7 @@ import fs from 'fs';
 
 // --- 1. API CLIENTS ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const geminiVisionModel = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+const geminiVisionModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-09-2025' });
 const apiClient = axios.create();
 
 // --- 2. CORE FUNCTIONS ---
